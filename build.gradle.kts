@@ -4,13 +4,16 @@ plugins {
 }
 
 group = "io.github.pashaoleynik97"
-version = "1.0-SNAPSHOT"
+version = "1.0"
 
 repositories {
     mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
+    implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.1.0")
+
     testImplementation(kotlin("test"))
 }
 
@@ -23,5 +26,5 @@ kotlin {
 }
 
 application {
-    mainClass.set("MainKt")
+    mainClass.set("BotMainKt")
 }
