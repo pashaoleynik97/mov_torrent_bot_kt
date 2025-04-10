@@ -1,10 +1,9 @@
-package bot
+package bot.auth
 
-import com.github.kotlintelegrambot.Bot
+import bot.env.secret
 import com.github.kotlintelegrambot.dispatcher.Dispatcher
 import com.github.kotlintelegrambot.dispatcher.command
 import com.github.kotlintelegrambot.dispatcher.handlers.CommandHandlerEnvironment
-import com.github.kotlintelegrambot.dispatcher.handlers.HandleCommand
 import com.github.kotlintelegrambot.entities.ChatId
 
 object BotAuthUtil {
@@ -34,7 +33,6 @@ object BotAuthUtil {
 
     fun isAuthorized(chatId: Long): Boolean = chatId in authorizedUsers
 }
-
 
 fun Dispatcher.authorizedCommand(
     command: String,

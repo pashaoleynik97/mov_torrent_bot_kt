@@ -1,4 +1,4 @@
-package bot
+package bot.env
 
 class BotSecret private constructor(
     private val mBotToken: String,
