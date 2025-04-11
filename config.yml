@@ -1,0 +1,12 @@
+bot:
+  tg-bot-token: "123456:AABB_uXjqqjQj8..."
+  tg-bot-password: "letmein"
+
+trackers:
+  - mazepa:
+      user: "username"
+      password: "password"
+
+downloads:
+  movies-dir: "/downloads/movies"
+  series-dir: "/downloads/series"

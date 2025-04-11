@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  movtorrentbot:
+    build: .
+    container_name: movtorrentbot
+    volumes:
+      - ./config.yml:/config.yml:ro
+      - ./queue:/queue
+      - /mnt/media/jellyfin-media/Movies:/downloads/movies
+      - /mnt/media/jellyfin-media/Shows:/downloads/series
+    command: ["--config", "/config.yml"]
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: "-Xmx512m"
+    ports:
+      - "8080:8080"  # qBittorrent Web UI if needed
