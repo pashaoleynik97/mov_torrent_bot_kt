@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     python3 \
     python3-pip \
+    jq \
     && apt-get clean
 
 # Install yq (YAML parser)
