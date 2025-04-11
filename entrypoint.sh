@@ -21,9 +21,14 @@ export SERIES_DIR=$(yq '.downloads."series-dir"' "$CONFIG_FILE")
 # Export tracker credentials
 TRACKERS=$(yq '.trackers | keys | .[]' "$CONFIG_FILE")
 for tracker in $TRACKERS; do
-  UPPER_NAME=$(echo "$tracker" | tr '[:lower:]' '[:upper:]')
-  export "${UPPER_NAME}_USER"=$(yq ".trackers.$tracker.user" "$CONFIG_FILE")
-  export "${UPPER_NAME}_PASS"=$(yq ".trackers.$tracker.password" "$CONFIG_FILE")
+  UPPER_NAME=$(echo $tracker | tr '[:lower:]' '[:upper:]')
+  UN_CLEANED=${UPPER_NAME//\"/}
+  TR_USR=${UN_CLEANED}_USER
+  TR_PWD=${UN_CLEANED}_PASS
+
+  export $TR_USR="$(yq -r ".trackers.$tracker.user" "$CONFIG_FILE")"
+  export $TR_PWD="$(yq -r ".trackers.$tracker.password" "$CONFIG_FILE")"
+  echo "→ Exported $TR_USR and $TR_PWD"
 done
 
 echo "✅ Environment variables loaded."
@@ -73,6 +78,7 @@ git clone https://github.com/pashaoleynik97/mov_torrent_bot_kt.git bot-source
 
 echo "🛠️ Building Kotlin bot..."
 cd bot-source
+chmod +x gradlew
 ./gradlew shadowJar
 
 echo "🚀 Launching bot..."
