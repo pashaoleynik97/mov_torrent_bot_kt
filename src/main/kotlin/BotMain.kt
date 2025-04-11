@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.io.File
 
 val trackers = listOf(
     MazepaTracker()
@@ -74,13 +75,13 @@ fun main(args: Array<String>) {
             authorizedCallbackQuery("download_movie") {
                 val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
                 UserSessionManager.setState(chatId, State.AwaitingMovieName)
-                bot.sendMessage(ChatId.fromId(chatId), "🎬 Enter movie name or kinobaza.com.ua link:")
+                bot.sendMessage(ChatId.fromId(chatId), "🎬 Enter movie name:")
             }
 
             authorizedCallbackQuery("download_series") {
                 val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
                 UserSessionManager.setState(chatId, State.AwaitingTVSeriesName)
-                bot.sendMessage(ChatId.fromId(chatId), "📺 Enter TV series name or kinobaza.com.ua link:")
+                bot.sendMessage(ChatId.fromId(chatId), "📺 Enter TV series name:")
             }
 
             authorizedCallbackQuery("select_tracker") {
@@ -152,24 +153,26 @@ fun main(args: Array<String>) {
                     "📁 Cached file: <code>${cachedFile.name}</code>",
                     parseMode = ParseMode.HTML
                 )
+
+                bot.promptToDownloadTorrent(chatId, cachedFile, category)
             }
 
-            callbackQuery(callbackData = null) {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
-                val data = callbackQuery.data ?: return@callbackQuery
+            authorizedCallbackQuery(callbackData = null) {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
+                val data = callbackQuery.data ?: return@authorizedCallbackQuery
 
                 when {
                     data.startsWith("select::") -> {
                         val parts = data.removePrefix("select::").split("::")
-                        if (parts.size != 2) return@callbackQuery
+                        if (parts.size != 2) return@authorizedCallbackQuery
 
-                        val index = parts[0].toIntOrNull() ?: return@callbackQuery
-                        val category = runCatching { TorrentCategory.valueOf(parts[1]) }.getOrNull() ?: return@callbackQuery
+                        val index = parts[0].toIntOrNull() ?: return@authorizedCallbackQuery
+                        val category = runCatching { TorrentCategory.valueOf(parts[1]) }.getOrNull() ?: return@authorizedCallbackQuery
 
                         val results = UserSessionManager.getSearchResults(chatId)
-                        val result = results.getOrNull(index) ?: return@callbackQuery
+                        val result = results.getOrNull(index) ?: return@authorizedCallbackQuery
 
-                        val tracker = trackers.find { it.name == result.trackerName } ?: return@callbackQuery
+                        val tracker = trackers.find { it.name == result.trackerName } ?: return@authorizedCallbackQuery
 
                         coroutineScope.launch {
                             try {
@@ -189,10 +192,42 @@ fun main(args: Array<String>) {
                                     parseMode = ParseMode.HTML
                                 )
 
+                                bot.promptToDownloadTorrent(chatId, file, category)
+
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 bot.sendMessage(ChatId.fromId(chatId), "❌ Failed to handle release: ${e.message}")
                             }
+                        }
+                    }
+
+                    data.startsWith("confirm_download::") -> {
+                        val parts = data.removePrefix("confirm_download::").split("::")
+                        if (parts.size != 2) return@authorizedCallbackQuery
+
+                        val fileName = parts[0]
+                        val category = runCatching { TorrentCategory.valueOf(parts[1]) }.getOrNull() ?: return@authorizedCallbackQuery
+
+                        val srcFile = File("cache/$chatId/$fileName")
+                        if (!srcFile.exists()) {
+                            bot.sendMessage(ChatId.fromId(chatId), "❌ Cached file not found: $fileName")
+                            return@authorizedCallbackQuery
+                        }
+
+                        val destDir = File("queue/${category.name.lowercase()}").apply { mkdirs() }
+                        val destFile = File(destDir, fileName)
+
+                        try {
+                            srcFile.copyTo(destFile, overwrite = true)
+                            bot.sendMessage(
+                                ChatId.fromId(chatId),
+                                "📥 Download request added to queue: <code>${destFile.name}</code>",
+                                parseMode = ParseMode.HTML
+                            )
+                            UserSessionManager.setState(chatId, State.Idle)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            bot.sendMessage(ChatId.fromId(chatId), "❌ Failed to queue download: ${e.message}")
                         }
                     }
                 }
@@ -244,6 +279,32 @@ fun menu(bot: Bot, chatId: Long) {
     )
 }
 
+fun Bot.promptToDownloadTorrent(
+    chatId: Long,
+    torrentFile: File,
+    category: TorrentCategory
+) {
+    val message = buildString {
+        appendLine("🎯 Would you like to start downloading this ${category.name.lowercase()}?")
+        appendLine()
+        append("<code>${torrentFile.name}</code>")
+    }
+
+    val buttons = InlineKeyboardMarkup.create(
+        listOf(
+            InlineKeyboardButton.CallbackData("✅ Yes", "confirm_download::${torrentFile.name}::${category.name}"),
+            InlineKeyboardButton.CallbackData("❌ No", "back_to_menu")
+        )
+    )
+
+    sendMessage(
+        chatId = ChatId.fromId(chatId),
+        text = message,
+        parseMode = ParseMode.HTML,
+        replyMarkup = buttons
+    )
+}
+
 fun Dispatcher.handleUserFileInput() {
     message(DocumentFilter) {
         val chatId = message.chat.id
@@ -255,8 +316,8 @@ fun Dispatcher.handleUserFileInput() {
         when (val state = session.state) {
             is State.AwaitingTorrentFileUpload -> {
                 val document = message.document
-                if (document != null && state is State.AwaitingTorrentFileUpload) {
-                    println("@@@ else -> document exists")
+                if (document != null) {
+
                     if (document.fileName?.endsWith(".torrent") == false) {
                         bot.sendMessage(ChatId.fromId(chatId), "⚠️ This doesn't look like a .torrent file.")
                         return@message
