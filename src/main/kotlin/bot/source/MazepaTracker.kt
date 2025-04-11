@@ -24,6 +24,9 @@ class MazepaTracker : TrackerSource {
 
     private var authorized = false
 
+    override val name: String
+        get() = "Mazepa"
+
     override suspend fun search(searchQuery: String): List<TrackerSource.TrackerSearchResult> {
         if (!authorized) login()
 
@@ -38,10 +41,14 @@ class MazepaTracker : TrackerSource {
             trySearch()
         }
 
-        return result.parseResults()
+        return result.parseResults(searchQuery)
     }
 
-    private fun String.parseResults(): List<TrackerSource.TrackerSearchResult> {
+    override fun searchRequest(searchQuery: String): String {
+        return "https://mazepa.to/search.php?nm=$searchQuery"
+    }
+
+    private fun String.parseResults(searchQuery: String): List<TrackerSource.TrackerSearchResult> {
         val doc = Jsoup.parse(this)
         val rows = doc.select("table.forumline tr.tCenter")
 
@@ -51,11 +58,12 @@ class MazepaTracker : TrackerSource {
             val relativeUrl = titleLink.attr("href")
             val pageUrl = "https://mazepa.to/$relativeUrl"
 
-            TrackerSource.TrackerSearchResult(
-                trackerName = "mazepa",
+            TrackerSource.TrackerSearchResult.create(
+                tracker = this@MazepaTracker,
                 releaseName = releaseName,
                 size = null,
-                pageUrl = pageUrl
+                pageUrl = pageUrl,
+                searchQueryUsed = searchRequest(searchQuery)
             )
         }
     }
