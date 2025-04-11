@@ -1,10 +1,14 @@
 import bot.auth.BotAuthUtil
+import bot.auth.authorizedCallbackQuery
 import bot.auth.authorizedCommand
 import bot.env.secret
+import bot.filter.DocumentFilter
 import bot.source.MazepaTracker
 import bot.source.TrackerSource
 import bot.state.State
+import bot.state.TorrentCategory
 import bot.state.UserSessionManager
+import bot.util.cacheTorrentFile
 import bot.util.extractTagEmoji
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
@@ -56,53 +60,54 @@ fun main(args: Array<String>) {
 
             // Global text handler
             handleUserInput()
+            handleUserFileInput()
 
             authorizedCommand("menu") {
                 menu()
             }
 
-            callbackQuery("back_to_menu") {
+            authorizedCallbackQuery("back_to_menu") {
                 menu()
             }
 
-            callbackQuery("download_movie") {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
+            authorizedCallbackQuery("download_movie") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
                 UserSessionManager.setState(chatId, State.AwaitingMovieName)
                 bot.sendMessage(ChatId.fromId(chatId), "🎬 Enter movie name or kinobaza.com.ua link:")
             }
 
-            callbackQuery("download_series") {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
+            authorizedCallbackQuery("download_series") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
                 UserSessionManager.setState(chatId, State.AwaitingTVSeriesName)
                 bot.sendMessage(ChatId.fromId(chatId), "📺 Enter TV series name or kinobaza.com.ua link:")
             }
 
-            callbackQuery("select_tracker") {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
-                val trackerName = callbackQuery.data.split("::").getOrNull(1) ?: return@callbackQuery
+            authorizedCallbackQuery("select_tracker") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
+                val trackerName = callbackQuery.data.split("::").getOrNull(1) ?: return@authorizedCallbackQuery
                 val tracker = trackers.find { it.name == trackerName } ?: run {
                     bot.sendMessage(ChatId.fromId(chatId), "\u274C Tracker not found.")
-                    return@callbackQuery
+                    return@authorizedCallbackQuery
                 }
 
                 val queryContext = UserSessionManager.getPendingQuery(chatId)
                 if (queryContext == null) {
                     bot.sendMessage(ChatId.fromId(chatId), "\u274C No query found. Try again from /menu.")
                     UserSessionManager.setState(chatId, State.Idle)
-                    return@callbackQuery
+                    return@authorizedCallbackQuery
                 }
 
                 handleSearchInput(queryContext.query, chatId, queryContext.savePath, tracker)
                 UserSessionManager.setState(chatId, State.Idle)
             }
 
-            callbackQuery("show_tracker_search_results") {
-                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
+            authorizedCallbackQuery("show_tracker_search_results") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
                 val results = UserSessionManager.getSearchResults(chatId)
 
                 if (results.isEmpty()) {
                     bot.sendMessage(ChatId.fromId(chatId), "❌ No previous search found.")
-                    return@callbackQuery
+                    return@authorizedCallbackQuery
                 }
 
                 val url = results.first().searchQueryUsed
@@ -110,6 +115,40 @@ fun main(args: Array<String>) {
                 bot.sendMessage(
                     ChatId.fromId(chatId),
                     "🌐 Raw search link:\n<a href=\"$url\">$url</a>",
+                    parseMode = ParseMode.HTML
+                )
+            }
+
+            authorizedCallbackQuery("drop_torrent_link") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
+                UserSessionManager.setState(chatId, State.AwaitingTorrentFileUrl)
+                bot.sendMessage(ChatId.fromId(chatId), "🔗 Please send the URL to the .torrent file:")
+            }
+
+            authorizedCallbackQuery("drop_torrent_file") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
+                UserSessionManager.setState(chatId, State.AwaitingTorrentFileUpload)
+                bot.sendMessage(ChatId.fromId(chatId), "📄 Please send the .torrent file:")
+            }
+
+            authorizedCallbackQuery("torrent_category::movie", "torrent_category::series") {
+                val chatId = callbackQuery.message?.chat?.id ?: return@authorizedCallbackQuery
+                val isMovie = callbackQuery.data.endsWith("movie")
+                val category = if (isMovie) TorrentCategory.MOVIE else TorrentCategory.SERIES
+
+                UserSessionManager.setTorrentCategory(chatId, category)
+                UserSessionManager.setState(chatId, State.Idle)
+
+                val pending = UserSessionManager.getPendingTorrent(chatId)
+                val source = pending?.source ?: "unknown"
+
+                bot.sendMessage(ChatId.fromId(chatId), "✅ Received ${if (isMovie) "movie" else "series"} torrent from ${if (pending?.isFile == true) "file" else "link"}:\n<code>$source</code>", parseMode = ParseMode.HTML)
+
+                val cachedFile = bot.cacheTorrentFile(chatId, source, pending?.isFile == true)
+
+                bot.sendMessage(
+                    ChatId.fromId(chatId),
+                    "📁 Cached file: <code>${cachedFile.name}</code>",
                     parseMode = ParseMode.HTML
                 )
             }
@@ -146,6 +185,10 @@ fun menu(bot: Bot, chatId: Long) {
         listOf(
             InlineKeyboardButton.CallbackData("🎬 Download Movie", "download_movie"),
             InlineKeyboardButton.CallbackData("📺 Download TV Series", "download_series")
+        ),
+        listOf(
+            InlineKeyboardButton.CallbackData("🎯 Drop Torrent File Link", "drop_torrent_link"),
+            InlineKeyboardButton.CallbackData("📄 Drop Torrent File", "drop_torrent_file")
         )
     )
 
@@ -154,6 +197,50 @@ fun menu(bot: Bot, chatId: Long) {
         text = "📋 Main Menu:\nWhat would you like to download?",
         replyMarkup = buttons
     )
+}
+
+fun Dispatcher.handleUserFileInput() {
+    message(DocumentFilter) {
+        val chatId = message.chat.id
+        val document = message.document ?: return@message
+
+        println("📦 Received document: ${document.fileName} (${document.fileId}) from chat $chatId")
+
+        val session = UserSessionManager.getSession(chatId)
+        when (val state = session.state) {
+            is State.AwaitingTorrentFileUpload -> {
+                val document = message.document
+                if (document != null && state is State.AwaitingTorrentFileUpload) {
+                    println("@@@ else -> document exists")
+                    if (document.fileName?.endsWith(".torrent") == false) {
+                        bot.sendMessage(ChatId.fromId(chatId), "⚠️ This doesn't look like a .torrent file.")
+                        return@message
+                    }
+
+                    // Save file_id in session for later download
+                    UserSessionManager.setPendingTorrent(chatId, source = document.fileId, isFile = true)
+
+                    bot.sendMessage(
+                        chatId = ChatId.fromId(chatId),
+                        text = "📄 Received .torrent file! What is this?",
+                        replyMarkup = InlineKeyboardMarkup.create(
+                            listOf(
+                                InlineKeyboardButton.CallbackData("🎬 Movie", "torrent_category::movie"),
+                                InlineKeyboardButton.CallbackData("📺 TV Series", "torrent_category::series")
+                            )
+                        )
+                    )
+
+                    UserSessionManager.setState(chatId, State.AwaitingTorrentCategorySelection)
+                }
+            }
+            else -> {
+                bot.sendMessage(ChatId.fromId(chatId), "🙃 Have no idea what you want from me! \nMaybe, let\'s start from /menu again?")
+            }
+        }
+
+    }
+
 }
 
 fun Dispatcher.handleUserInput() {
@@ -192,7 +279,32 @@ fun Dispatcher.handleUserInput() {
 
                 UserSessionManager.setState(chatId, State.AwaitingTrackerSelection)
             }
-            else -> {}
+            is State.AwaitingTorrentFileUrl -> {
+                val url = text
+                if (!url.endsWith(".torrent")) {
+                    bot.sendMessage(ChatId.fromId(chatId), "⚠️ Please make sure this is a .torrent file URL.")
+                    return@message
+                }
+
+                // Save URL in session
+                UserSessionManager.setPendingTorrent(chatId, source = url, isFile = false)
+
+                bot.sendMessage(
+                    ChatId.fromId(chatId),
+                    "🎯 Got the link! What is this?",
+                    replyMarkup = InlineKeyboardMarkup.create(
+                        listOf(
+                            InlineKeyboardButton.CallbackData("🎬 Movie", "torrent_category::movie"),
+                            InlineKeyboardButton.CallbackData("📺 TV Series", "torrent_category::series")
+                        )
+                    )
+                )
+
+                UserSessionManager.setState(chatId, State.AwaitingTorrentCategorySelection)
+            }
+            else -> {
+                bot.sendMessage(ChatId.fromId(chatId), "🙃 Have no idea what you want from me! \nMaybe, let\'s start from /menu again?")
+            }
         }
     }
 }

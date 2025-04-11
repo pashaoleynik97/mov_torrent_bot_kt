@@ -26,6 +26,9 @@ dependencies {
 
     implementation("org.jsoup:jsoup:1.16.1")
 
+    implementation("com.squareup.okhttp3:okhttp:3.14.9")
+    implementation("org.json:json:20240303")
+
     testImplementation(kotlin("test"))
 }
 
