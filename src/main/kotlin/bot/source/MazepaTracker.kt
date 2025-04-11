@@ -48,6 +48,14 @@ class MazepaTracker : TrackerSource {
         return "https://mazepa.to/search.php?nm=$searchQuery"
     }
 
+    override suspend fun getDownloadUrlFromReleasePage(pageUrl: String): String {
+        val html = client.get(pageUrl).bodyAsText()
+        val doc = Jsoup.parse(html)
+        val downloadLink = doc.selectFirst("a[href^=dl.php?id=]")?.attr("href")
+            ?: error("❌ Download link not found on release page.")
+        return "https://mazepa.to/$downloadLink"
+    }
+
     private fun String.parseResults(searchQuery: String): List<TrackerSource.TrackerSearchResult> {
         val doc = Jsoup.parse(this)
         val rows = doc.select("table.forumline tr.tCenter")

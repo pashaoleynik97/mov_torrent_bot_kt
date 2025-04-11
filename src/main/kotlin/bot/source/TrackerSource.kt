@@ -38,4 +38,6 @@ interface TrackerSource {
 
     fun searchRequest(searchQuery: String): String
 
+    suspend fun getDownloadUrlFromReleasePage(pageUrl: String): String
+
 }

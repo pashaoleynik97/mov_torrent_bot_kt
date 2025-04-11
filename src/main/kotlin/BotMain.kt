@@ -10,6 +10,7 @@ import bot.state.TorrentCategory
 import bot.state.UserSessionManager
 import bot.util.cacheTorrentFile
 import bot.util.extractTagEmoji
+import bot.util.followRedirect
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
@@ -97,7 +98,7 @@ fun main(args: Array<String>) {
                     return@authorizedCallbackQuery
                 }
 
-                handleSearchInput(queryContext.query, chatId, queryContext.savePath, tracker)
+                handleSearchInput(queryContext.query, chatId, queryContext.category, tracker)
                 UserSessionManager.setState(chatId, State.Idle)
             }
 
@@ -151,6 +152,50 @@ fun main(args: Array<String>) {
                     "📁 Cached file: <code>${cachedFile.name}</code>",
                     parseMode = ParseMode.HTML
                 )
+            }
+
+            callbackQuery(callbackData = null) {
+                val chatId = callbackQuery.message?.chat?.id ?: return@callbackQuery
+                val data = callbackQuery.data ?: return@callbackQuery
+
+                when {
+                    data.startsWith("select::") -> {
+                        val parts = data.removePrefix("select::").split("::")
+                        if (parts.size != 2) return@callbackQuery
+
+                        val index = parts[0].toIntOrNull() ?: return@callbackQuery
+                        val category = runCatching { TorrentCategory.valueOf(parts[1]) }.getOrNull() ?: return@callbackQuery
+
+                        val results = UserSessionManager.getSearchResults(chatId)
+                        val result = results.getOrNull(index) ?: return@callbackQuery
+
+                        val tracker = trackers.find { it.name == result.trackerName } ?: return@callbackQuery
+
+                        coroutineScope.launch {
+                            try {
+                                bot.sendMessage(ChatId.fromId(chatId), "📥 Fetching torrent for:\n<b>${result.releaseName}</b>", parseMode = ParseMode.HTML)
+
+                                val rawUrl = tracker.getDownloadUrlFromReleasePage(result.pageUrl)
+                                val finalUrl = followRedirect(rawUrl)
+                                val file = bot.cacheTorrentFile(chatId, finalUrl, isFile = false)
+
+                                UserSessionManager.setPendingTorrent(chatId, file.absolutePath, isFile = true)
+                                UserSessionManager.setTorrentCategory(chatId, category)
+                                UserSessionManager.setState(chatId, State.Idle)
+
+                                bot.sendMessage(
+                                    ChatId.fromId(chatId),
+                                    "✅ Torrent cached as ${category.name.lowercase()}:\n<code>${file.name}</code>",
+                                    parseMode = ParseMode.HTML
+                                )
+
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                bot.sendMessage(ChatId.fromId(chatId), "❌ Failed to handle release: ${e.message}")
+                            }
+                        }
+                    }
+                }
             }
 
         }
@@ -265,7 +310,7 @@ fun Dispatcher.handleUserInput() {
                 }
             }
             is State.AwaitingMovieName, is State.AwaitingTVSeriesName -> {
-                UserSessionManager.setPendingQuery(chatId, text, savePath = if (state is State.AwaitingMovieName) "/movies" else "/shows")
+                UserSessionManager.setPendingQuery(chatId, text, category = if (state is State.AwaitingMovieName) TorrentCategory.MOVIE else TorrentCategory.SERIES)
 
                 val trackerButtons = trackers.map {
                     listOf(InlineKeyboardButton.CallbackData(it.name, "select_tracker::${it.name}"))
@@ -309,7 +354,7 @@ fun Dispatcher.handleUserInput() {
     }
 }
 
-fun CallbackQueryHandlerEnvironment.handleSearchInput(query: String, chatId: Long, savePath: String, tracker: TrackerSource) {
+fun CallbackQueryHandlerEnvironment.handleSearchInput(query: String, chatId: Long, category: TorrentCategory, tracker: TrackerSource) {
     coroutineScope.launch {
         try {
             val results = tracker.search(query)
@@ -329,7 +374,7 @@ fun CallbackQueryHandlerEnvironment.handleSearchInput(query: String, chatId: Lon
             }
 
             val buttons = results.take(7).mapIndexed { i, _ ->
-                listOf(InlineKeyboardButton.CallbackData("${i + 1}", "select::$i::$savePath"))
+                listOf(InlineKeyboardButton.CallbackData("${i + 1}", "select::$i::$category"))
             }.toMutableList().apply {
                 add(
                     listOf(

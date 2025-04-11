@@ -29,8 +29,8 @@ object UserSessionManager {
         return searchResultsMap[chatId] ?: emptyList()
     }
 
-    fun setPendingQuery(chatId: Long, query: String, savePath: String) {
-        pendingQueryMap[chatId] = UserInputContext(query, savePath)
+    fun setPendingQuery(chatId: Long, query: String, category: TorrentCategory) {
+        pendingQueryMap[chatId] = UserInputContext(query, category)
     }
 
     fun getPendingQuery(chatId: Long): UserInputContext? {
@@ -78,7 +78,7 @@ sealed class State {
 
 data class UserInputContext(
     val query: String,
-    val savePath: String
+    val category: TorrentCategory
 )
 
 data class PendingTorrent(
