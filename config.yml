@@ -3,9 +3,9 @@ bot:
   tg-bot-password: "letmein"
 
 trackers:
-  - mazepa:
-      user: "username"
-      password: "password"
+  mazepa:
+    user: "username"
+    password: "password"
 
 downloads:
   movies-dir: "/downloads/movies"
