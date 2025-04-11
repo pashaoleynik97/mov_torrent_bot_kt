@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.9.0"
     application
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "io.github.pashaoleynik97"
@@ -34,6 +35,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
+    archiveClassifier.set("") // Optional: remove "-all" suffix
 }
 
 kotlin {
