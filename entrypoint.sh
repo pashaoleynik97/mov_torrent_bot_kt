@@ -11,12 +11,16 @@ CONFIG_FILE="$2"
 echo "📖 Loading config from $CONFIG_FILE"
 
 # Export bot environment variables
-export TG_BOT_TOKEN=$(yq '.bot."tg-bot-token"' "$CONFIG_FILE")
-export TG_BOT_PASSWORD=$(yq '.bot."tg-bot-password"' "$CONFIG_FILE")
+R_TG_BOT_TOKEN=$(yq '.bot."tg-bot-token"' "$CONFIG_FILE")
+export TG_BOT_TOKEN=${R_TG_BOT_TOKEN//\"/}
+R_TG_BOT_PASSWORD=$(yq '.bot."tg-bot-password"' "$CONFIG_FILE")
+export TG_BOT_PASSWORD=${R_TG_BOT_PASSWORD//\"/}
 
 # Export download directories
-export MOVIES_DIR=$(yq '.downloads."movies-dir"' "$CONFIG_FILE")
-export SERIES_DIR=$(yq '.downloads."series-dir"' "$CONFIG_FILE")
+R_MOVIES_DIR=$(yq '.downloads."movies-dir"' "$CONFIG_FILE")
+export MOVIES_DIR=${R_MOVIES_DIR//\"/}
+R_SERIES_DIR=$(yq '.downloads."series-dir"' "$CONFIG_FILE")
+export SERIES_DIR=${R_SERIES_DIR//\"/}
 
 # Export tracker credentials
 TRACKERS=$(yq '.trackers | keys | .[]' "$CONFIG_FILE")
