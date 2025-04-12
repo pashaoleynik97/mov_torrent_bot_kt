@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     jq \
+    procps \
+    nano \
     && apt-get clean
 
 # Install yq (YAML parser)

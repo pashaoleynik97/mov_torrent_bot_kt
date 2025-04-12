@@ -25,13 +25,13 @@ export SERIES_DIR=${R_SERIES_DIR//\"/}
 # Export tracker credentials
 TRACKERS=$(yq '.trackers | keys | .[]' "$CONFIG_FILE")
 for tracker in $TRACKERS; do
-  UPPER_NAME=$(echo $tracker | tr '[:lower:]' '[:upper:]')
-  UN_CLEANED=${UPPER_NAME//\"/}
-  TR_USR=${UN_CLEANED}_USER
-  TR_PWD=${UN_CLEANED}_PASS
+  CLEAN_NAME=$(echo "$tracker" | tr -d '"')
+  UPPER_NAME=$(echo "$CLEAN_NAME" | tr '[:lower:]' '[:upper:]')
+  TR_USR=${UPPER_NAME}_USER
+  TR_PWD=${UPPER_NAME}_PASS
 
-  export $TR_USR="$(yq -r ".trackers.$tracker.user" "$CONFIG_FILE")"
-  export $TR_PWD="$(yq -r ".trackers.$tracker.password" "$CONFIG_FILE")"
+  export $TR_USR="$(yq -r ".trackers.$CLEAN_NAME.user" "$CONFIG_FILE")"
+  export $TR_PWD="$(yq -r ".trackers.$CLEAN_NAME.password" "$CONFIG_FILE")"
   echo "→ Exported $TR_USR and $TR_PWD"
 done
 
@@ -40,9 +40,11 @@ echo "✅ Environment variables loaded."
 # Configure qBittorrent
 echo "⚙️ Configuring qBittorrent..."
 
-mkdir -p /home/botuser/.config/qBittorrent
+CONFIG_DIR="/home/botuser/.config/qbt"
+rm -rf "$CONFIG_DIR"
+mkdir -p "$CONFIG_DIR"
 
-cat > /home/botuser/.config/qBittorrent/qBittorrent.conf <<EOF
+cat > "$CONFIG_DIR/qBittorrent.conf" <<EOF
 [AutoRun]
 enabled=true
 program=
@@ -52,10 +54,10 @@ Accepted=true
 
 [BitTorrent]
 Session\\DefaultSavePath=$MOVIES_DIR
-Session\\ScanDirs\\1\\Path=/queue/movies
+Session\\ScanDirs\\1\\Path=/home/botuser/bot-source/queue/movie
 Session\\ScanDirs\\1\\DownloadPath=$MOVIES_DIR
 Session\\ScanDirs\\1\\Enabled=true
-Session\\ScanDirs\\2\\Path=/queue/series
+Session\\ScanDirs\\2\\Path=/home/botuser/bot-source/queue/series
 Session\\ScanDirs\\2\\DownloadPath=$SERIES_DIR
 Session\\ScanDirs\\2\\Enabled=true
 
@@ -66,11 +68,15 @@ WebUI\\Port=8080
 WebUI\\Address=0.0.0.0
 EOF
 
+# Ensure ownership and permissions
+chown -R botuser:botuser /home/botuser/.config
+chmod 600 "$CONFIG_DIR/qBittorrent.conf"
+
 echo "✅ qBittorrent configured with scan and download paths."
 
 # Start qBittorrent-nox
 echo "🧲 Starting qBittorrent-nox..."
-qbittorrent-nox &
+qbittorrent-nox --profile=$CONFIG_DIR &
 
 # Wait for qBittorrent to start up
 sleep 5
