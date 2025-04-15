@@ -40,6 +40,9 @@ echo "✅ Environment variables loaded."
 # Configure qBittorrent
 echo "⚙️ Configuring qBittorrent..."
 
+sudo chown -R 1000:1000 /mnt/media/Movies
+sudo chown -R 1000:1000 /mnt/media/Shows
+
 CONFIG_DIR="/home/botuser/.config/qbt"
 rm -rf "$CONFIG_DIR"
 mkdir -p "$CONFIG_DIR"
@@ -54,7 +57,7 @@ Accepted=true
 
 [BitTorrent]
 Session\\DefaultSavePath=$MOVIES_DIR
-Session\\ScanDirs\\1\\Path=/home/botuser/bot-source/queue/movie
+Session\\ScanDirs\\1\\Path=/home/botuser/bot-source/queue/movies
 Session\\ScanDirs\\1\\DownloadPath=$MOVIES_DIR
 Session\\ScanDirs\\1\\Enabled=true
 Session\\ScanDirs\\2\\Path=/home/botuser/bot-source/queue/series
