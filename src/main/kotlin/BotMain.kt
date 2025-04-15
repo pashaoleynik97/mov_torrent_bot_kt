@@ -215,13 +215,21 @@ fun main(args: Array<String>) {
                         }
 
                         val destDir = File("queue/${category.name.lowercase()}").apply { mkdirs() }
-                        val destFile = File(destDir, fileName)
+                        val finalDestFile = File(destDir, fileName)
+                        val tempDestFile = File(destDir, "temp_${System.currentTimeMillis()}.torrent")
 
                         try {
-                            srcFile.copyTo(destFile, overwrite = true)
+                            // Copy bytes to temp file first
+                            tempDestFile.writeBytes(srcFile.readBytes())
+
+                            // Rename after write is complete
+                            if (!tempDestFile.renameTo(finalDestFile)) {
+                                throw IllegalStateException("Rename failed from ${tempDestFile.name} to ${finalDestFile.name}")
+                            }
+
                             bot.sendMessage(
                                 ChatId.fromId(chatId),
-                                "📥 Download request added to queue: <code>${destFile.name}</code>",
+                                "📥 Download request added to queue: <code>${finalDestFile.name}</code>",
                                 parseMode = ParseMode.HTML
                             )
                             UserSessionManager.setState(chatId, State.Idle)
