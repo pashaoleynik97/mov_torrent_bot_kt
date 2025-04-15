@@ -40,9 +40,6 @@ echo "✅ Environment variables loaded."
 # Configure qBittorrent
 echo "⚙️ Configuring qBittorrent..."
 
-sudo chown -R 1000:1000 /mnt/media/Movies
-sudo chown -R 1000:1000 /mnt/media/Shows
-
 CONFIG_DIR="/home/botuser/.config/qbt"
 rm -rf "$CONFIG_DIR"
 mkdir -p "$CONFIG_DIR"
