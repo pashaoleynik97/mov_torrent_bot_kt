@@ -8,6 +8,7 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import okhttp3.OkHttpClient
 import org.jsoup.Jsoup
 
 class MazepaTracker : TrackerSource {
@@ -54,6 +55,10 @@ class MazepaTracker : TrackerSource {
         val downloadLink = doc.selectFirst("a[href^=dl.php?id=]")?.attr("href")
             ?: error("❌ Download link not found on release page.")
         return "https://mazepa.to/$downloadLink"
+    }
+
+    override fun authorizedClient(): HttpClient {
+        return client
     }
 
     private fun String.parseResults(searchQuery: String): List<TrackerSource.TrackerSearchResult> {

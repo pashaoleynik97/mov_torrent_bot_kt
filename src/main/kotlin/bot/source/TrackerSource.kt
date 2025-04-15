@@ -1,5 +1,8 @@
 package bot.source
 
+import io.ktor.client.*
+import okhttp3.OkHttpClient
+
 interface TrackerSource {
 
     val name: String
@@ -39,5 +42,7 @@ interface TrackerSource {
     fun searchRequest(searchQuery: String): String
 
     suspend fun getDownloadUrlFromReleasePage(pageUrl: String): String
+
+    fun authorizedClient(): HttpClient?
 
 }

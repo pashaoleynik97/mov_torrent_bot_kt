@@ -178,9 +178,13 @@ fun main(args: Array<String>) {
                             try {
                                 bot.sendMessage(ChatId.fromId(chatId), "📥 Fetching torrent for:\n<b>${result.releaseName}</b>", parseMode = ParseMode.HTML)
 
-                                val rawUrl = tracker.getDownloadUrlFromReleasePage(result.pageUrl)
-                                val finalUrl = followRedirect(rawUrl)
-                                val file = bot.cacheTorrentFile(chatId, finalUrl, isFile = false)
+                                val rawUrl = tracker.getDownloadUrlFromReleasePage(result.pageUrl).also {
+                                    println("rawTorrentFileUrl: $it")
+                                }
+                                val finalUrl = followRedirect(rawUrl).also {
+                                    println("resolvedTorrentFileUrl: $it")
+                                }
+                                val file = bot.cacheTorrentFile(chatId, finalUrl, isFile = false, authorizedClient = tracker.authorizedClient())
 
                                 UserSessionManager.setPendingTorrent(chatId, file.absolutePath, isFile = true)
                                 UserSessionManager.setTorrentCategory(chatId, category)

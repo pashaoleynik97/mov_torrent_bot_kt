@@ -2,6 +2,12 @@ package bot.util
 
 import bot.env.secret
 import com.github.kotlintelegrambot.Bot
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -11,7 +17,9 @@ import java.security.MessageDigest
 
 private val httpClient = OkHttpClient()
 
-fun Bot.cacheTorrentFile(chatId: Long, source: String, isFile: Boolean): File {
+val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+fun Bot.cacheTorrentFile(chatId: Long, source: String, isFile: Boolean, authorizedClient: HttpClient? = null): File {
     val dir = File("cache/$chatId").apply { mkdirs() }
     val hashedName = sha256(source).take(16) + ".torrent"
     val outputFile = File(dir, hashedName)
@@ -25,7 +33,7 @@ fun Bot.cacheTorrentFile(chatId: Long, source: String, isFile: Boolean): File {
         source
     }
 
-    downloadFile(fileUrl, outputFile)
+    downloadFile(fileUrl, outputFile, authorizedClient)
     return outputFile
 }
 
@@ -49,7 +57,38 @@ private fun getFilePathFromTelegram(fileId: String): String {
     }
 }
 
-fun downloadFile(url: String, destination: File) {
+fun downloadFile(url: String, destination: File, authorizedClient: HttpClient?) {
+    if (authorizedClient == null) {
+        downloadFileAnon(url, destination)
+    } else {
+        coroutineScope.launch { downloadFileAuthorized(url, destination, authorizedClient) }
+    }
+}
+
+suspend fun downloadFileAuthorized(url: String, destination: File, authorizedClient: HttpClient) {
+    val response: HttpResponse = authorizedClient.get(url)
+
+    if (!response.status.isSuccess()) {
+        error("❌ Failed to download (auth) file: $url (HTTP ${response.status.value})")
+    }
+
+    val byteArray = response.body<ByteArray>()
+
+    if (byteArray.size < 100) {
+        val contentStart = byteArray.decodeToString().take(80).lowercase()
+        if ("html" in contentStart || "login" in contentStart || "<!doctype" in contentStart) {
+            error("❌ Probably got HTML instead of .torrent (login required or session expired)")
+        }
+    }
+
+    withContext(Dispatchers.IO) {
+        FileOutputStream(destination).use { output ->
+            output.write(byteArray)
+        }
+    }
+}
+
+fun downloadFileAnon(url: String, destination: File) {
     val request = Request.Builder().url(url).build()
     httpClient.newCall(request).execute().use { response ->
         if (!response.isSuccessful) {
