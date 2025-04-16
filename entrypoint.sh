@@ -112,22 +112,13 @@ chown -R botuser:botuser /home/botuser/.config
 
 echo "✅ qBittorrent configured with scan and download paths."
 
-# Build and run bot
-echo "📥 Cloning latest bot source..."
-rm -rf bot-source
-git clone https://github.com/pashaoleynik97/mov_torrent_bot_kt.git bot-source
-
-echo "🛠️ Building Kotlin bot..."
-cd bot-source
+# Start the bot first
+echo "🚀 Launching bot..."
+cd /home/botuser/bot-source
 chmod +x gradlew
 ./gradlew shadowJar
+java -jar build/libs/*.jar &
 
-echo "🚀 Launching bot..."
-exec java -jar build/libs/*.jar
-
-# Start qBittorrent-nox
+# Then launch qBittorrent
 echo "🧲 Starting qBittorrent-nox..."
-qbittorrent-nox --profile=$CONFIG_ROOT &
-
-# Wait for qBittorrent to start up
-sleep 5
+qbittorrent-nox --profile=$CONFIG_ROOT
