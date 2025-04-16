@@ -67,6 +67,7 @@ Advanced\\trackerPort=9000
 Connection\\PortRangeMin=26636
 Connection\\ResolvePeerCountries=true
 Downloads\\SavePath=/downloads/
+Downloads\\ScanDirsV2=@Variant(\\0\\0\\0\\x1c\\0\\0\\0\\x2\\0\\0\\0H\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0m\\0o\\0v\\0i\\0e\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0m\\0o\\0v\\0i\\0e\\0s\\0\\0\\0J\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0s\\0e\\0r\\0i\\0e\\0s\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0s\\0e\\0r\\0i\\0e\\0s)
 DynDNS\\DomainName=changeme.dyndns.org
 DynDNS\\Enabled=false
 DynDNS\\Password=
@@ -137,8 +138,7 @@ done
 
 echo "🔐 Logging into Web API..."
 COOKIE_JAR=/tmp/qbt_cookies.txt
-curl -c "$COOKIE_JAR" -X POST http://localhost:8080/api/v2/auth/login \
-    -d "username=admin&password=adminadmin" > /dev/null
+curl -c "$COOKIE_JAR" -i --header 'Referer: http://localhost:8080' --data 'username=admin&password=adminadmin' http://localhost:8080/api/v2/auth/login > /dev/null
 
 echo "➕ Registering watched folders via Web API..."
 curl -b "$COOKIE_JAR" -X POST http://localhost:8080/api/v2/app/setPreferences \
