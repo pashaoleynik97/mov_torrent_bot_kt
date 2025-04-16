@@ -138,15 +138,18 @@ done
 echo "🔐 Logging into Web API..."
 COOKIE_JAR=/tmp/qbt_cookies.txt
 curl -c "$COOKIE_JAR" -X POST http://localhost:8080/api/v2/auth/login \
-    -d "username=admin&password=admin" > /dev/null
+    -d "username=admin&password=adminadmin" > /dev/null
 
 echo "➕ Registering watched folders via Web API..."
 curl -b "$COOKIE_JAR" -X POST http://localhost:8080/api/v2/app/setPreferences \
     --header "Content-Type: application/json" \
     --data-raw '{
+      "create_subfolder_enabled": true,
+      "save_path": "/downloads",
+      "queueing_enabled": true,
       "scanDirs": {
-        "/home/botuser/bot-source/queue/movie": {"enabled": true, "downloadPath": "'"$MOVIES_DIR"'"},
-        "/home/botuser/bot-source/queue/series": {"enabled": true, "downloadPath": "'"$SERIES_DIR"'"}
+        "/home/botuser/bot-source/queue/movie": {"enabled": true, "downloadPath": "'"$R_MOVIES_DIR"'"},
+        "/home/botuser/bot-source/queue/series": {"enabled": true, "downloadPath": "'"$R_SERIES_DIR"'"}
       }
     }'
 
