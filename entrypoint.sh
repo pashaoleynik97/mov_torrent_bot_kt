@@ -37,11 +37,19 @@ done
 
 echo "✅ Environment variables loaded."
 
+# Prepare torrent queue folders
+echo "📁 Ensuring queue directories..."
+mkdir -p /home/botuser/bot-source/queue/movie
+mkdir -p /home/botuser/bot-source/queue/series
+
 # Configure qBittorrent
 echo "⚙️ Configuring qBittorrent..."
 
-CONFIG_DIR="/home/botuser/.config/qbt"
-rm -rf "$CONFIG_DIR"
+CONFIG_ROOT="/home/botuser/.config/qbt"
+rm -rf "$CONFIG_ROOT"
+mkdir -p "$CONFIG_ROOT"
+
+CONFIG_DIR="/home/botuser/.config/qbt/qBittorrent/config"
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_DIR/qBittorrent.conf" <<EOF
@@ -49,34 +57,59 @@ cat > "$CONFIG_DIR/qBittorrent.conf" <<EOF
 enabled=true
 program=
 
-[LegalNotice]
-Accepted=true
-
-[BitTorrent]
-Session\\DefaultSavePath=$MOVIES_DIR
-Session\\ScanDirs\\1\\Path=/home/botuser/bot-source/queue/movies
-Session\\ScanDirs\\1\\DownloadPath=$MOVIES_DIR
-Session\\ScanDirs\\1\\Enabled=true
-Session\\ScanDirs\\2\\Path=/home/botuser/bot-source/queue/series
-Session\\ScanDirs\\2\\DownloadPath=$SERIES_DIR
-Session\\ScanDirs\\2\\Enabled=true
-
 [Preferences]
-General\\Locale=en
-WebUI\\Enabled=true
+Advanced\\RecheckOnCompletion=false
+Advanced\\trackerPort=9000
+Connection\\PortRangeMin=26636
+Connection\\ResolvePeerCountries=true
+Downloads\\ScanDirsV2=@Variant(\\0\\0\\0\\x1c\\0\\0\\0\\x2\\0\\0\\0J\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0s\\0e\\0r\\0i\\0e\\0s\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0s\\0e\\0r\\0i\\0e\\0s\\0\\0\\0H\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0m\\0o\\0v\\0i\\0e\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0m\\0o\\0v\\0i\\0e\\0s)
+DynDNS\\DomainName=changeme.dyndns.org
+DynDNS\\Enabled=false
+DynDNS\\Password=
+DynDNS\\Service=0
+DynDNS\\Username=
+General\\Locale=
+MailNotification\\email=
+MailNotification\\enabled=false
+MailNotification\\password=
+MailNotification\\req_auth=true
+MailNotification\\req_ssl=false
+MailNotification\\sender=qBittorrent_notification@example.com
+MailNotification\\smtp_server=smtp.changeme.com
+MailNotification\\username=
+Queueing\\QueueingEnabled=true
+WebUI\\Address=*
+WebUI\\AlternativeUIEnabled=false
+WebUI\\AuthSubnetWhitelist=@Invalid()
+WebUI\\AuthSubnetWhitelistEnabled=false
+WebUI\\BanDuration=3600
+WebUI\\CSRFProtection=true
+WebUI\\ClickjackingProtection=true
+WebUI\\CustomHTTPHeaders=
+WebUI\\CustomHTTPHeadersEnabled=false
+WebUI\\HTTPS\\CertificatePath=
+WebUI\\HTTPS\\Enabled=false
+WebUI\\HTTPS\\KeyPath=
+WebUI\\HostHeaderValidation=true
+WebUI\\LocalHostAuth=true
+WebUI\\MaxAuthenticationFailCount=5
 WebUI\\Port=8080
-WebUI\\Address=0.0.0.0
+WebUI\\RootFolder=
+WebUI\\SecureCookie=true
+WebUI\\ServerDomains=*
+WebUI\\SessionTimeout=3600
+WebUI\\UseUPnP=true
+WebUI\\Username=admin
 EOF
 
 # Ensure ownership and permissions
 chown -R botuser:botuser /home/botuser/.config
-chmod 600 "$CONFIG_DIR/qBittorrent.conf"
 
 echo "✅ qBittorrent configured with scan and download paths."
 
 # Start qBittorrent-nox
 echo "🧲 Starting qBittorrent-nox..."
-qbittorrent-nox --profile=$CONFIG_DIR &
+qbittorrent-nox --profile=$CONFIG_ROOT &
 
 # Wait for qBittorrent to start up
 sleep 5

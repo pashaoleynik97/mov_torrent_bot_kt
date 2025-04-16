@@ -41,6 +41,10 @@ val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 fun main(args: Array<String>) {
     println("Welcome to movtorrentbot!")
 
+    // Create queue dirs!
+    File("queue/${TorrentCategory.MOVIE.name.lowercase()}").apply { mkdirs() }
+    File("queue/${TorrentCategory.SERIES.name.lowercase()}").apply { mkdirs() }
+
     val bot = bot {
         token = secret.botToken
         logLevel = LogLevel.All()
