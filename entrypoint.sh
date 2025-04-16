@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Validate input arguments
+# === Step 1: Parse arguments ===
 if [[ "$1" != "--config" || -z "$2" || ! -f "$2" ]]; then
   echo "❌ Usage: docker run ... --config /config/config.yml"
   exit 1
@@ -10,46 +10,32 @@ fi
 CONFIG_FILE="$2"
 echo "📖 Loading config from $CONFIG_FILE"
 
-# Export bot environment variables
-R_TG_BOT_TOKEN=$(yq '.bot."tg-bot-token"' "$CONFIG_FILE")
-export TG_BOT_TOKEN=${R_TG_BOT_TOKEN//\"/}
-R_TG_BOT_PASSWORD=$(yq '.bot."tg-bot-password"' "$CONFIG_FILE")
-export TG_BOT_PASSWORD=${R_TG_BOT_PASSWORD//\"/}
+# === Step 2: Export env variables ===
+export TG_BOT_TOKEN=$(yq -r '.bot."tg-bot-token"' "$CONFIG_FILE")
+export TG_BOT_PASSWORD=$(yq -r '.bot."tg-bot-password"' "$CONFIG_FILE")
+export MOVIES_DIR=$(yq -r '.downloads."movies-dir"' "$CONFIG_FILE")
+export SERIES_DIR=$(yq -r '.downloads."series-dir"' "$CONFIG_FILE")
 
-# Export download directories
-R_MOVIES_DIR=$(yq '.downloads."movies-dir"' "$CONFIG_FILE")
-export MOVIES_DIR=${R_MOVIES_DIR//\"/}
-R_SERIES_DIR=$(yq '.downloads."series-dir"' "$CONFIG_FILE")
-export SERIES_DIR=${R_SERIES_DIR//\"/}
-
-# Export tracker credentials
-TRACKERS=$(yq '.trackers | keys | .[]' "$CONFIG_FILE")
+TRACKERS=$(yq -r '.trackers | keys[]' "$CONFIG_FILE")
 for tracker in $TRACKERS; do
-  CLEAN_NAME=$(echo "$tracker" | tr -d '"')
-  UPPER_NAME=$(echo "$CLEAN_NAME" | tr '[:lower:]' '[:upper:]')
-  TR_USR=${UPPER_NAME}_USER
-  TR_PWD=${UPPER_NAME}_PASS
-
-  export $TR_USR="$(yq -r ".trackers.$CLEAN_NAME.user" "$CONFIG_FILE")"
-  export $TR_PWD="$(yq -r ".trackers.$CLEAN_NAME.password" "$CONFIG_FILE")"
-  echo "→ Exported $TR_USR and $TR_PWD"
+  NAME_UPPER=$(echo "$tracker" | tr '[:lower:]' '[:upper:]')
+  export "${NAME_UPPER}_USER"=$(yq -r ".trackers.\"$tracker\".user" "$CONFIG_FILE")
+  export "${NAME_UPPER}_PASS"=$(yq -r ".trackers.\"$tracker\".password" "$CONFIG_FILE")
+  echo "→ Exported ${NAME_UPPER}_USER and ${NAME_UPPER}_PASS"
 done
 
 echo "✅ Environment variables loaded."
 
-# Prepare torrent queue folders
+# === Step 3: Prepare queue directories ===
 echo "📁 Ensuring queue directories..."
 mkdir -p /home/botuser/bot-source/queue/movie
 mkdir -p /home/botuser/bot-source/queue/series
 
-# Configure qBittorrent
+# === Step 4: Configure qBittorrent ===
 echo "⚙️ Configuring qBittorrent..."
-
 CONFIG_ROOT="/home/botuser/.config/qbt"
+CONFIG_DIR="$CONFIG_ROOT/qBittorrent/config"
 rm -rf "$CONFIG_ROOT"
-mkdir -p "$CONFIG_ROOT"
-
-CONFIG_DIR="/home/botuser/.config/qbt/qBittorrent/config"
 mkdir -p "$CONFIG_DIR"
 
 cat > "$CONFIG_DIR/qBittorrent.conf" <<EOF
@@ -68,89 +54,37 @@ Connection\\PortRangeMin=26636
 Connection\\ResolvePeerCountries=true
 Downloads\\SavePath=/downloads/
 Downloads\\ScanDirsV2=@Variant(\\0\\0\\0\\x1c\\0\\0\\0\\x2\\0\\0\\0H\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0m\\0o\\0v\\0i\\0e\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0m\\0o\\0v\\0i\\0e\\0s\\0\\0\\0J\\0/\\0h\\0o\\0m\\0e\\0/\\0b\\0o\\0t\\0u\\0s\\0e\\0r\\0/\\0b\\0o\\0t\\0-\\0s\\0o\\0u\\0r\\0c\\0e\\0/\\0q\\0u\\0e\\0u\\0e\\0/\\0s\\0e\\0r\\0i\\0e\\0s\\0\\0\\0\\n\\0\\0\\0\\"\\0/\\0d\\0o\\0w\\0n\\0l\\0o\\0a\\0d\\0s\\0/\\0s\\0e\\0r\\0i\\0e\\0s)
-DynDNS\\DomainName=changeme.dyndns.org
-DynDNS\\Enabled=false
-DynDNS\\Password=
-DynDNS\\Service=0
-DynDNS\\Username=
-General\\Locale=
-MailNotification\\email=
-MailNotification\\enabled=false
-MailNotification\\password=
-MailNotification\\req_auth=true
-MailNotification\\req_ssl=false
-MailNotification\\sender=qBittorrent_notification@example.com
-MailNotification\\smtp_server=smtp.changeme.com
-MailNotification\\username=
-Queueing\\QueueingEnabled=true
 WebUI\\Address=*
-WebUI\\AlternativeUIEnabled=false
-WebUI\\AuthSubnetWhitelist=@Invalid()
-WebUI\\AuthSubnetWhitelistEnabled=false
-WebUI\\BanDuration=3600
-WebUI\\CSRFProtection=true
-WebUI\\ClickjackingProtection=true
-WebUI\\CustomHTTPHeaders=
-WebUI\\CustomHTTPHeadersEnabled=false
-WebUI\\HTTPS\\CertificatePath=
-WebUI\\HTTPS\\Enabled=false
-WebUI\\HTTPS\\KeyPath=
-WebUI\\HostHeaderValidation=true
-WebUI\\LocalHostAuth=true
-WebUI\\MaxAuthenticationFailCount=5
 WebUI\\Port=8080
-WebUI\\RootFolder=
-WebUI\\SecureCookie=true
-WebUI\\ServerDomains=*
-WebUI\\SessionTimeout=3600
-WebUI\\UseUPnP=true
 WebUI\\Username=admin
+WebUI\\LocalHostAuth=true
+WebUI\\SecureCookie=true
 EOF
 
-# Ensure ownership and permissions
-chown -R botuser:botuser /home/botuser/.config
+chown -R botuser:botuser "$CONFIG_ROOT"
+echo "✅ qBittorrent config ready."
 
-echo "✅ qBittorrent configured with scan and download paths."
-
-# Build and run bot
+# === Step 5: Build and start the bot ===
 echo "📥 Cloning latest bot source..."
 rm -rf bot-source
 git clone https://github.com/pashaoleynik97/mov_torrent_bot_kt.git bot-source
 
-# Start the bot
 echo "🚀 Launching bot..."
 cd /home/botuser/bot-source
 chmod +x gradlew
 ./gradlew shadowJar
 java -jar build/libs/*.jar &
 
-# Then launch qBittorrent
-echo "🧲 Starting qBittorrent-nox..."
-qbittorrent-nox --profile=$CONFIG_ROOT
+# === Step 6: Start qBittorrent and restart once ===
+echo "🧲 Starting qBittorrent..."
+qbittorrent-nox --profile="$CONFIG_ROOT" &
+QBT_PID=$!
 
-# Wait for qBittorrent initial startup
+echo "⏳ Waiting for qBittorrent to initialize..."
+sleep 10
+
+echo "🔄 Restarting qBittorrent to ensure config is loaded..."
+kill "$QBT_PID"
 sleep 5
 
-echo "⏳ Waiting for qBittorrent Web UI to become available..."
-until curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/v2/app/version | grep -q "200"; do
-    sleep 1
-done
-
-echo "🔐 Logging into Web API..."
-COOKIE_JAR=/tmp/qbt_cookies.txt
-curl -c "$COOKIE_JAR" -i --header 'Referer: http://localhost:8080' --data 'username=admin&password=adminadmin' http://localhost:8080/api/v2/auth/login > /dev/null
-
-echo "➕ Registering watched folders via Web API..."
-curl -b "$COOKIE_JAR" -X POST http://localhost:8080/api/v2/app/setPreferences \
-    --header "Content-Type: application/json" \
-    --data-raw '{
-      "create_subfolder_enabled": true,
-      "save_path": "/downloads",
-      "queueing_enabled": true,
-      "scanDirs": {
-        "/home/botuser/bot-source/queue/movie": {"enabled": true, "downloadPath": "'"$R_MOVIES_DIR"'"},
-        "/home/botuser/bot-source/queue/series": {"enabled": true, "downloadPath": "'"$R_SERIES_DIR"'"}
-      }
-    }'
-
-echo "✅ Watched folders registered!"
+qbittorrent-nox --profile="$CONFIG_ROOT"
