@@ -63,18 +63,21 @@ class MazepaTracker : TrackerSource {
 
     private fun String.parseResults(searchQuery: String): List<TrackerSource.TrackerSearchResult> {
         val doc = Jsoup.parse(this)
-        val rows = doc.select("table.forumline tr.tCenter")
+        val rows = doc.select("#forum_table tr[id^=tor_]")
 
         return rows.mapNotNull { row ->
-            val titleLink = row.selectFirst("a.topictitle")
-            val releaseName = titleLink?.text()?.trim() ?: return@mapNotNull null
+            val titleLink = row.selectFirst("td:nth-child(4) a") ?: return@mapNotNull null
+            val releaseName = titleLink.text().trim()
             val relativeUrl = titleLink.attr("href")
             val pageUrl = "https://mazepa.to/$relativeUrl"
+
+            val sizeCell = row.selectFirst("td:nth-child(6)")
+            val size = sizeCell?.text()?.trim()
 
             TrackerSource.TrackerSearchResult.create(
                 tracker = this@MazepaTracker,
                 releaseName = releaseName,
-                size = null,
+                size = size,
                 pageUrl = pageUrl,
                 searchQueryUsed = searchRequest(searchQuery)
             )
@@ -84,27 +87,24 @@ class MazepaTracker : TrackerSource {
     @Throws(IllegalStateException::class)
     private suspend fun searchByName(searchQuery: String): String {
         val response = client.submitForm(
-            url = "https://mazepa.to/search.php",
+            url = "https://mazepa.to/tracker.php",
             formParameters = Parameters.build {
                 append("nm", searchQuery)
-                append("allw", "1")
-                append("pn", "")
-                append("f[]", "0")
-                append("tm", "0")
-                append("dm", "0")
-                append("o", "1")
-                append("s", "0")
-                append("submit", "\u00A0\u00A0Пошук\u00A0\u00A0") // non-breaking spaces
+                append("max", "1")
+                append("to", "1")
             }
         ) {
+            method = HttpMethod.Post
             headers {
-                append("Referer", "https://mazepa.to/search.php")
+                append("Referer", "https://mazepa.to/")
                 append("Origin", "https://mazepa.to")
-                append("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...")
+                append("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                append(HttpHeaders.ContentType, ContentType.Application.FormUrlEncoded.toString())
             }
         }
 
         val html = response.bodyAsText()
+
         val title = Jsoup.parse(html).title()
         println("🔍 Page title: $title")
 
