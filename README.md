@@ -75,7 +75,7 @@ Create the file:
 sudo nano /etc/smbcredentials
 ```
 
-Place the credentials of your DMB share here:
+Place the credentials of your SMB share here:
 
 ```ini
 username=jellyfin
