@@ -33,10 +33,10 @@ mkdir -p /home/botuser/bot-source/queue/series
 
 # === Step 4: Configure qBittorrent ===
 echo "⚙️ Configuring qBittorrent..."
-CONFIG_ROOT="/home/botuser/.config/qbt"
+CONFIG_ROOT="/.qbt"
 CONFIG_DIR="$CONFIG_ROOT/qBittorrent/config"
-rm -rf "$CONFIG_ROOT"
 mkdir -p "$CONFIG_DIR"
+rm -f "$CONFIG_DIR/qBittorrent.conf"
 
 cat > "$CONFIG_DIR/qBittorrent.conf" <<EOF
 [AutoRun]

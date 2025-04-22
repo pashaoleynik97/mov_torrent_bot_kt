@@ -9,6 +9,7 @@ services:
       - ./queue:/queue
       - /mnt/media/Movies:/downloads/movies:rw
       - /mnt/media/Shows:/downloads/series:rw
+      - ./qbt-profile:/.qbt:rw
     command: ["--config", "/config.yml"]
     restart: unless-stopped
     environment:

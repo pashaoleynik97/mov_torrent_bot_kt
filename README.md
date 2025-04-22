@@ -69,6 +69,25 @@ This repo will contain:
 
 ## 🔗 3. Mount Your TrueNAS SMB Share
 
+Create the file:
+
+```bash
+sudo nano /etc/smbcredentials
+```
+
+Place the credentials of your DMB share here:
+
+```ini
+username=jellyfin
+password=pas$word
+```
+
+Secure it with:
+
+```bash
+sudo chmod 600 /etc/smbcredentials
+```
+
 Edit `/etc/fstab`:
 
 ```bash
@@ -79,7 +98,7 @@ Add this line at the bottom:
 
 ```bash
 # Jellyfin TrueNAS share
-//192.168.0.XXX/smb-share /mnt/media cifs username=<smb_username>,password='<smb_password>',uid=1000,gid=1000,dir_mode=0775,file_mode=0664 0 0
+//192.168.0.107/jellyfin-media /mnt/media cifs credentials=/etc/smbcredentials,uid=1000,gid=1000,dir_mode=0775,file_mode=0664,nounix,vers=3.0 0 0
 ```
 
 Then mount:
@@ -95,6 +114,15 @@ ls -la /mnt/media
 ```
 
 ## ⚙️ 4. Prepare Configuration Files
+
+### Create qbt profile dir and grant access for docker
+
+Under the `mov_torrent_bot_kt` dir:
+
+```bash
+mkdir qbt-profile
+sudo chown -R 1000:1000 qbt-profile
+```
 
 ### 🔧 `config.yml`
 
@@ -131,6 +159,7 @@ services:
       - ./queue:/queue
       - /mnt/media/Movies:/downloads/movies:rw
       - /mnt/media/Shows:/downloads/series:rw
+      - ./qbt-profile:/.qbt:rw
     command: ["--config", "/config.yml"]
     restart: unless-stopped
     environment:
@@ -144,6 +173,14 @@ services:
 From the root of your project:
 
 ```bash
+docker-compose up --build
+```
+
+If you are getting error like `movtorrentbot    | exec ./entrypoint.sh: no such file or directory`, do:
+
+```bash
+sed -i 's/\r//' entrypoint.sh
+docker-compose down
 docker-compose up --build
 ```
 
@@ -172,3 +209,11 @@ Check logs for:
 6. Confirm download
 
 7. 🎉 Check if qBittorrent starts downloading
+
+# Other...
+
+To enter the shell of `movtorrentbot` use:
+
+```bash
+docker exec -it movtorrentbot bash
+```
