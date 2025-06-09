@@ -8,10 +8,14 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import okhttp3.OkHttpClient
 import org.jsoup.Jsoup
+import java.util.concurrent.TimeUnit
 
 class MazepaTracker : TrackerSource {
+
+    companion object {
+        private val MAX_AUTH_SESSION_TIME = TimeUnit.HOURS.toMillis(6)
+    }
 
     private val client: HttpClient = HttpClient(CIO) {
         install(HttpCookies) {
@@ -23,7 +27,17 @@ class MazepaTracker : TrackerSource {
         }
     }
 
-    private var authorized = false
+    private var _authorized = false
+    private var _authorizedAt: Long = 0L
+
+    private var authorized: Boolean
+        get() {
+            return _authorized && (System.currentTimeMillis() - _authorizedAt <= MAX_AUTH_SESSION_TIME)
+        }
+        set(value) {
+            _authorized = value
+            _authorizedAt = System.currentTimeMillis()
+        }
 
     override val name: String
         get() = "Mazepa"
